@@ -64,7 +64,8 @@ for the rant audio.
 
 1. Copy the plugin into place:
    ```bash
-   cp -r rene.lalinea ~/.config/omarchy/plugins/
+   git clone https://github.com/ariDev1/omaLinea.git
+   cp -r omaLinea ~/.config/omarchy/plugins/rene.lalinea
    omarchy plugin validate ~/.config/omarchy/plugins/rene.lalinea
    ```
 2. Register it in `~/.config/omarchy/shell.json`:

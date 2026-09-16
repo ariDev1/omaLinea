@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "rene.lalinea",
+  "name": "La Linea Walker",
+  "version": "3.6.0",
+  "author": "rene",
+  "description": "La Linea by Osvaldo Cavandoli (unofficial fan tribute): 14 transparent keyed scenes with original Bonomi rant audio, animated bar icon. SUPER+L toggles, SUPER+SHIFT+L/J scenes, SUPER+SHIFT+Z zoom.",
+  "kinds": ["overlay", "bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "LaLinea.qml",
+    "barWidget": "BarIcon.qml"
+  },
+  "barWidget": {
+    "displayName": "La Linea",
+    "description": "Standing La Linea icon — fidgets randomly, click honors Cavandoli",
+    "category": "Fun",
+    "allowMultiple": false
+  }
+}

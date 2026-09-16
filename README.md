@@ -62,7 +62,12 @@ omarchy-shell shell summon rene.lalinea '{"action":"stage"}'   # force native
 Requirements: [Omarchy](https://omarchy.org/) (Quickshell shell) and `mpv`
 for the rant audio.
 
-1. Copy the plugin into place:
+1. Standard install (recommended):
+   ```bash
+   omarchy plugin add https://github.com/ariDev1/omaLinea.git --enable
+   omarchy plugin validate ~/.config/omarchy/plugins/rene.lalinea
+   ```
+   Manual alternative:
    ```bash
    git clone https://github.com/ariDev1/omaLinea.git
    cp -r omaLinea ~/.config/omarchy/plugins/rene.lalinea
@@ -81,6 +86,25 @@ for the rant audio.
    hyprctl reload && hyprctl configerrors
    omarchy restart shell
    ```
+
+## Update
+
+```bash
+omarchy plugin update rene.lalinea
+omarchy restart shell
+```
+
+## Removal
+
+```bash
+omarchy plugin remove rene.lalinea
+```
+
+Removal deletes the plugin directory. Your `shell.json` entry, bar layout
+entry, and Hyprland keybindings are yours — remove those lines too if you
+don't want them. Nothing else is left behind: no services, no timers, no
+files outside the plugin directory (the rant `mpv` process exits with the
+overlay and is reaped on shell start).
 
 ## Adding scenes
 
@@ -101,3 +125,17 @@ re-encoding bigger files.
 - **Osvaldo Cavandoli (1920–2007)** — creator of La Linea (first aired 1969)
 - **Carlo Bonomi** — voice of the rant
 - Built for the [Omarchy](https://omarchy.org/) community with love
+
+## Support & security
+
+- Bugs and ideas: [GitHub issues](https://github.com/ariDev1/omaLinea/issues)
+- Security: this plugin runs unsandboxed inside the Omarchy shell (like all
+  shell plugins). It launches one local process — `mpv` for rant audio, no
+  network access, no credentials. Report concerns via GitHub issues; do not
+  post credentials anywhere.
+
+## Compatibility
+
+Tested on Omarchy 4.0.4 (Quattro shell), single monitor. No unbounded
+claims — if you run another version, `omarchy plugin validate` plus a
+summon/hide cycle is the 30-second check.

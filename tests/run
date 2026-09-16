@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Portable release checks for omaLinea. Runs anywhere with bash + python3.
+# Host checks (omarchy CLI, qmllint) run when available, skip otherwise.
+set -u
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FAIL=0
+
+fail() { echo "FAIL: $1"; FAIL=1; }
+pass() { echo "ok: $1"; }
+
+# 1. manifest.json parses and declares the contract surface.
+MANIFEST="$ROOT/manifest.json"
+[ -f "$MANIFEST" ] || { fail "manifest.json missing"; }
+python3 - "$MANIFEST" <<'EOF'
+import json, sys
+m = json.load(open(sys.argv[1]))
+assert m["id"] == "rene.lalinea", "id"
+assert m["version"], "version"
+eps = m["entryPoints"]
+for kind, path in (("overlay", eps.get("overlay")), ("barWidget", eps.get("barWidget"))):
+    assert path, f"entryPoints.{kind}"
+print("manifest:", m["id"], m["version"], sorted(m["kinds"]))
+EOF
+[ $? -eq 0 ] && pass "manifest parses" || fail "manifest parses"
+
+# 2. Every mapped entry point exists.
+for f in LaLinea.qml BarIcon.qml; do
+  [ -f "$ROOT/$f" ] && pass "$f present" || fail "$f present"
+done
+
+# 3. Every scene referenced by LaLinea.qml exists with audio.
+missing=$(python3 - "$ROOT/LaLinea.qml" <<'EOF'
+import re, sys
+qml = open(sys.argv[1]).read()
+need = set(re.findall(r'"(walk|scene\d+)\.(gif|ogg)"', qml))
+import os
+root = os.path.dirname(sys.argv[1])
+absent = sorted({f"{n}.{e}" for n, e in need if not os.path.isfile(os.path.join(root, f"{n}.{e}"))})
+print(" ".join(absent))
+print(f"scenes referenced: {len(need)}", file=sys.stderr)
+EOF
+)
+[ -z "$missing" ] && pass "all referenced scenes + audio present" || fail "missing assets: $missing"
+
+# 4. Size budget: no giant files (GIF frame budget is covered in README).
+big=$(python3 - "$ROOT" <<'EOF'
+import os, sys
+root = sys.argv[1]
+over = [f for f in os.listdir(root) if os.path.isfile(os.path.join(root, f)) and os.path.getsize(os.path.join(root, f)) > 50 * 1024 * 1024]
+print(" ".join(over))
+EOF
+)
+[ -z "$big" ] && pass "no files over 50MB" || fail "oversize: $big"
+
+# 5. QML lint when available (host/CI with Qt).
+if command -v qmllint >/dev/null 2>&1; then
+  qmllint "$ROOT/LaLinea.qml" "$ROOT/BarIcon.qml" && pass "qmllint" || fail "qmllint"
+else
+  echo "skip: qmllint not installed"
+fi
+
+# 6. Official Omarchy validation when on Omarchy.
+if command -v omarchy >/dev/null 2>&1; then
+  omarchy plugin validate "$ROOT" && pass "omarchy plugin validate" || fail "omarchy plugin validate"
+else
+  echo "skip: omarchy CLI not installed"
+fi
+
+[ "$FAIL" -eq 0 ] && echo "ALL PORTABLE CHECKS PASSED" || echo "CHECKS FAILED"
+exit "$FAIL"

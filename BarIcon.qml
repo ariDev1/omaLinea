@@ -16,6 +16,9 @@ BarWidget {
   property bool cardOpen: false
   readonly property string repoUrl: "https://github.com/ariDev1/omaLinea"
 
+  // Widget panel contract: programmatic open/close alongside the click toggle.
+  property alias opened: root.cardOpen
+  function open() { root.cardOpen = true }
   function close() { root.cardOpen = false }
 
   // Outer-scope state the iconComponent binds to (ids inside a

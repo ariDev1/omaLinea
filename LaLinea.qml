@@ -123,6 +123,16 @@ Item {
       root.shell.hide("rene.lalinea")
   }
 
+  // A shell restart while open orphans the looping mpv (fresh shell, no
+  // owner — the rant plays forever with nobody to stop it). Reap any stale
+  // rant audio from this plugin exactly once at load; at startup no live
+  // instance exists, so every match is an orphan by definition.
+  Process {
+    id: orphanReap
+    command: ["pkill", "-f", "rene\\.lalinea/.*\\.ogg"]
+    running: true
+  }
+
   // Original rant audio per scene, looped for as long as he is on stage.
   Process {
     id: audioProc

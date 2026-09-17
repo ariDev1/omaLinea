@@ -78,9 +78,22 @@ for the rant audio.
    "plugins": [{ "id": "rene.lalinea" }]
    ```
    and add `{ "id": "rene.lalinea" }` to `bar.layout.right` for the bar icon.
-3. Add the keybindings from above to `~/.config/hypr/bindings.lua`
+3. Add the keybindings to `~/.config/hypr/bindings.lua`.
+   `omarchy plugin add --enable` does **not** install Hyprland keybindings —
+   this step is required, otherwise `SUPER+L` keeps doing its default
+   workspace-layout toggle and the other keys do nothing.
    (`SUPER+L` needs `hl.unbind("SUPER + L")` first — it replaces the
-   workspace-layout toggle).
+   workspace-layout toggle.) Copy-paste block:
+   ```lua
+   -- omaLinea — La Linea Walker (https://github.com/ariDev1/omaLinea)
+   -- SUPER+L was previously bound to Toggle workspace layout, unbound below.
+   hl.unbind("SUPER + L")
+   o.bind("SUPER + L", "La Linea toggle", "omarchy-shell shell toggle rene.lalinea")
+   o.bind("SUPER + SHIFT + L", "La Linea next scene", "omarchy-shell shell summon rene.lalinea '{\"action\":\"next\"}'")
+   o.bind("SUPER + SHIFT + J", "La Linea prev scene", "omarchy-shell shell summon rene.lalinea '{\"action\":\"prev\"}'")
+   o.bind("SUPER + SHIFT + Z", "La Linea zoom toggle", "omarchy-shell shell summon rene.lalinea '{\"action\":\"toggleFill\"}'")
+   ```
+   Verify with: `omarchy menu keybindings --print | grep "La Linea"`
 4. Apply:
    ```bash
    hyprctl reload && hyprctl configerrors

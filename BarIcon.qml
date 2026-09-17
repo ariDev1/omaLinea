@@ -128,6 +128,23 @@ BarWidget {
         width: parent.width
         wrapMode: Text.WrapAnywhere
         textFormat: Text.RichText
+        text: 'Official tribute: <a href="https://osvaldocavandoli.com/la-linea/">osvaldocavandoli.com</a>'
+        linkColor: Color.accent
+        color: Qt.darker(root.bar.foreground, 1.4)
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.body
+        onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+        MouseArea {
+          anchors.fill: parent
+          acceptedButtons: Qt.NoButton
+          cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+        }
+      }
+
+      Text {
+        width: parent.width
+        wrapMode: Text.WrapAnywhere
+        textFormat: Text.RichText
         text: 'Plugin source: <a href="' + root.repoUrl + '">github.com/ariDev1/omaLinea</a>'
         linkColor: Color.accent
         color: Qt.darker(root.bar.foreground, 1.4)

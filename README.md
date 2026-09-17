@@ -10,6 +10,8 @@ and rants in Carlo Bonomi's unmistakable gibberish.
 
 ![La Linea on stage](preview.png)
 
+🎬 [Watch the 33s demo](https://github.com/ariDev1/omaLinea/releases/download/v3.6.0/omaLinea-preview.mp4) — edge-fill over the scope, with rant audio. Also on the [v3.6.0 release page](https://github.com/ariDev1/omaLinea/releases/tag/v3.6.0).
+
 ## Features
 
 - **14 keyed scenes** — transparent GIFs cut from original footage, each with

@@ -8,6 +8,8 @@ and rants in Carlo Bonomi's unmistakable gibberish.
 > Footage and audio are cut from the user's own copy for personal,
 > non-commercial desktop use. Grazie, Maestro.
 
+![La Linea on stage](preview.png)
+
 ## Features
 
 - **14 keyed scenes** — transparent GIFs cut from original footage, each with

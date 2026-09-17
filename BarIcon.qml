@@ -74,7 +74,7 @@ BarWidget {
     owner: root
     bar: root.bar
     open: root.cardOpen
-    contentWidth: card.fittedContentWidth(Style.space(300))
+    contentWidth: card.fittedContentWidth(Style.space(360))
     contentHeight: card.fittedContentHeight(cardColumn.implicitHeight)
 
     Column {

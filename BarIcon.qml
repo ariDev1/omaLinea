@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import qs.Ui
@@ -60,14 +61,30 @@ BarWidget {
     bar: root.bar
     tooltipText: "La Linea — choose an episode"
     iconComponent: Item {
+      // Same look and feel as glyph icons: tinted to bar foreground via
+      // MultiEffect (adapts to dark/light themes like every other icon).
+      // Sized to the optical canvas ×1.25 (~20px in a 27px slot) so the
+      // thin line figure stays legible instead of shrinking to 16px.
+      readonly property real iconPx: Math.round(button.opticalSize * 1.25)
+      y: root.hopY
       Image {
+        id: lineArt
         anchors.centerIn: parent
-        y: root.hopY
+        width: parent.iconPx
+        height: parent.iconPx
         source: root.bowing ? Qt.resolvedUrl("icon-bow.png") : Qt.resolvedUrl("icon-stand.png")
         fillMode: Image.PreserveAspectFit
         smooth: true
-        width: 22
-        height: 22
+        sourceSize.width: Math.round(parent.iconPx * Screen.devicePixelRatio)
+        sourceSize.height: Math.round(parent.iconPx * Screen.devicePixelRatio)
+        visible: false
+        layer.enabled: true
+      }
+      MultiEffect {
+        anchors.fill: lineArt
+        source: lineArt
+        colorization: 1.0
+        colorizationColor: button.foreground
       }
     }
     onPressed: root.cardOpen = !root.cardOpen

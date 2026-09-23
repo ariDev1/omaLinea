@@ -30,7 +30,8 @@ Item {
 
   // false = native size on bottom stage (crisp, your favorite).
   // true = scaled to screen edges (stretched fullscreen).
-  // Toggle with SUPER+SHIFT+Z. GPU scaling only — same decoded frames.
+  // Toggle with SUPER+SHIFT+Z. Implemented as a GPU Scale transform so the
+  // AnimatedImage decode size never changes and playback never restarts.
   property bool fillScreen: false
 
   // Display size multiplier: 1.0 = native 400px, 1.8 = big stage presence.
@@ -90,11 +91,10 @@ Item {
   }
   function toggleFill() {
     if (!root.opened) { root.open('{"action":"fill"}'); return }
+    // GPU transform only: never touch partIndex, timers, or audio here.
+    // The previous resyncAv() seeked mpv to the wall-clock position while
+    // the WebP chunk restarts at its own frame 0, which guaranteed drift.
     root.fillScreen = !root.fillScreen
-    // Fullscreen re-rasterizes every animated frame at screen size and can
-    // drop video frames while mpv audio keeps real time. Re-anchor both to
-    // the current playback position so they leave the toggle in sync.
-    root.resyncAv()
   }
   function restartAudio() {
     audioProc.running = false
@@ -168,7 +168,9 @@ Item {
       else if (p.action === "toggleFill") {
         root.fillScreen = !root.fillScreen
         if (!root.opened) { root.opened = true; root.startEpisode() }
-        else root.resyncAv()
+        // When already open: flip the GPU transform only. Do NOT restart
+        // or seek anything — AnimatedImage keeps its current frame, mpv
+        // keeps playing, so they stay in sync.
         return
       }
       else if (p.action === "fill") { root.fillScreen = true }
@@ -226,22 +228,39 @@ Item {
       id: stage
       anchors.fill: parent
 
-      // Native stage: aspect-correct bottom display (crisp favorite).
-      // Fill mode: stretched to screen edges (SUPER+SHIFT+Z toggles).
-      // Both are GPU scaling of the same small decoded WebP chunk.
-      AnimatedImage {
-        id: walker
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 0
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: root.fillScreen ? stage.width : Math.min(stage.width * 0.8, 400 * root.displayScale)
-        height: root.fillScreen ? stage.height : width * 0.8
-        source: Qt.resolvedUrl(root.partUrl)
-        playing: root.opened
-        cache: false
-        asynchronous: true
-        smooth: true
-        fillMode: root.fillScreen ? Image.Stretch : Image.PreserveAspectFit
+      // GPU-only zoom: the AnimatedImage keeps its native decode size in
+      // both modes. Fill mode scales the whole layer via transform, so the
+      // movie never reloads/restarts (a restart would replay the 30s chunk
+      // from frame 0 while mpv audio keeps real time = permanent desync).
+      property real zoomX: root.fillScreen && walker.width > 0 ? stage.width / walker.width : 1
+      property real zoomY: root.fillScreen && walker.height > 0 ? stage.height / walker.height : 1
+
+      Item {
+        id: zoomLayer
+        anchors.fill: parent
+        transform: Scale {
+          xScale: stage.zoomX
+          yScale: stage.zoomY
+          origin.x: stage.width / 2
+          origin.y: stage.height
+        }
+
+        // Native stage size, always: aspect-correct bottom display.
+        // Fill mode stretches via zoomLayer, not by resizing the image.
+        AnimatedImage {
+          id: walker
+          anchors.bottom: parent.bottom
+          anchors.bottomMargin: 0
+          anchors.horizontalCenter: parent.horizontalCenter
+          width: Math.min(stage.width * 0.8, 400 * root.displayScale)
+          height: width * 0.8
+          source: Qt.resolvedUrl(root.partUrl)
+          playing: root.opened
+          cache: false
+          asynchronous: true
+          smooth: true
+          fillMode: Image.PreserveAspectFit
+        }
       }
 
       Text {

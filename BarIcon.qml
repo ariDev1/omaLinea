@@ -1,11 +1,12 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import qs.Commons
 import qs.Ui
 
 // La Linea bar icon — he stands in your bar and fidgets, randomly.
 // Poses are authentic keyed frames (stand + bow). Click opens the
-// Omarchy-style tribute card (PopupCard, anchored top-right).
+// Omarchy-style episode picker and tribute card (PopupCard, bar-anchored).
 BarWidget {
   id: root
   moduleName: "rene.lalinea"
@@ -15,6 +16,12 @@ BarWidget {
 
   property bool cardOpen: false
   readonly property string repoUrl: "https://github.com/ariDev1/omaLinea"
+
+  function selectEpisode(number) {
+    root.close()
+    if (root.bar && root.bar.shell)
+      root.bar.shell.summon("rene.lalinea", JSON.stringify({ episode: number }))
+  }
 
   // Widget panel contract: programmatic open/close alongside the click toggle.
   property alias opened: root.cardOpen
@@ -51,7 +58,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    tooltipText: "La Linea — click to honor Osvaldo Cavandoli"
+    tooltipText: "La Linea — choose an episode"
     iconComponent: Item {
       Image {
         anchors.centerIn: parent
@@ -75,103 +82,163 @@ BarWidget {
     bar: root.bar
     open: root.cardOpen
     contentWidth: card.fittedContentWidth(Style.space(360))
-    contentHeight: card.fittedContentHeight(cardColumn.implicitHeight)
+    contentHeight: card.fittedContentHeight(cardColumn.implicitHeight, Style.space(520))
 
-    Column {
-      id: cardColumn
+    Flickable {
+      id: cardScroll
       anchors.fill: parent
-      spacing: Style.space(8)
+      contentWidth: width
+      contentHeight: cardColumn.implicitHeight
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+      flickableDirection: Flickable.VerticalFlick
+      interactive: contentHeight > height
+      ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-      Row {
-        spacing: Style.space(10)
-        width: parent.width
+      Column {
+        id: cardColumn
+        width: cardScroll.width
+        spacing: Style.space(8)
 
-        Image {
-          source: Qt.resolvedUrl("icon-stand.png")
-          width: 40
-          height: 40
-          fillMode: Image.PreserveAspectFit
-          smooth: true
-          anchors.verticalCenter: parent.verticalCenter
-        }
+        Row {
+          spacing: Style.space(10)
+          width: parent.width
 
-        Column {
-          spacing: 2
-          anchors.verticalCenter: parent.verticalCenter
-
-          Text {
-            text: "La Linea"
-            color: root.bar.foreground
-            font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.title
-            font.bold: true
+          Image {
+            source: Qt.resolvedUrl("icon-stand.png")
+            width: 40
+            height: 40
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            anchors.verticalCenter: parent.verticalCenter
           }
-          Text {
-            text: "Unofficial fan tribute"
-            color: Qt.darker(root.bar.foreground, 1.4)
-            font.family: root.bar.fontFamily
-            font.pixelSize: Style.font.caption
+
+          Column {
+            spacing: 2
+            anchors.verticalCenter: parent.verticalCenter
+
+            Text {
+              text: "La Linea"
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.title
+              font.bold: true
+            }
+            Text {
+              text: "Unofficial fan tribute"
+              color: Qt.darker(root.bar.foreground, 1.4)
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+            }
           }
         }
-      }
 
-      Text {
-        width: parent.width
-        wrapMode: Text.WordWrap
-        text: "Created by Osvaldo Cavandoli (1920–2007). Voice of the rant: Carlo Bonomi. First aired 1969 — grazie, Maestro."
-        color: root.bar.foreground
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.body
-      }
-
-      Text {
-        width: parent.width
-        wrapMode: Text.WrapAnywhere
-        textFormat: Text.RichText
-        text: 'Official tribute: <a href="https://osvaldocavandoli.com/la-linea/">osvaldocavandoli.com</a>'
-        linkColor: Color.accent
-        color: Qt.darker(root.bar.foreground, 1.4)
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.body
-        onLinkActivated: function(link) { Qt.openUrlExternally(link) }
-        MouseArea {
-          anchors.fill: parent
-          acceptedButtons: Qt.NoButton
-          cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+        Text {
+          width: parent.width
+          text: "Choose an episode · 101–128"
+          color: root.bar.foreground
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: true
         }
-      }
 
-      Text {
-        width: parent.width
-        wrapMode: Text.WrapAnywhere
-        textFormat: Text.RichText
-        text: 'Plugin source: <a href="' + root.repoUrl + '">github.com/ariDev1/omaLinea</a>'
-        linkColor: Color.accent
-        color: Qt.darker(root.bar.foreground, 1.4)
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.body
-        onLinkActivated: function(link) { Qt.openUrlExternally(link) }
-        MouseArea {
-          anchors.fill: parent
-          acceptedButtons: Qt.NoButton
-          cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+        Grid {
+          id: episodeGrid
+          width: parent.width
+          columns: 4
+          spacing: Style.space(6)
+
+          Repeater {
+            model: 28
+            delegate: Rectangle {
+              id: episodeCell
+              required property int index
+              readonly property int episodeNumber: 101 + index
+              width: (episodeGrid.width - episodeGrid.spacing * 3) / 4
+              height: Style.space(32)
+              radius: Math.max(2, Style.cornerRadius)
+              color: cellMouse.containsMouse
+                ? Style.hoverFillFor(root.bar.foreground, Color.accent)
+                : Style.normalFillFor(root.bar.foreground, Color.accent)
+
+              Text {
+                anchors.centerIn: parent
+                text: episodeCell.episodeNumber
+                color: root.bar.foreground
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.body
+                font.bold: true
+              }
+
+              MouseArea {
+                id: cellMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.selectEpisode(episodeCell.episodeNumber)
+              }
+            }
+          }
         }
-      }
 
-      Text {
-        width: parent.width
-        text: "▶ Summon La Linea on stage"
-        color: Color.accent
-        font.family: root.bar.fontFamily
-        font.pixelSize: Style.font.body
-        font.bold: true
+        Text {
+          width: parent.width
+          wrapMode: Text.WordWrap
+          text: "Created by Osvaldo Cavandoli (1920–2007). Voice of the rant: Carlo Bonomi. First aired 1969 — grazie, Maestro."
+          color: root.bar.foreground
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.body
+        }
 
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            root.close()
-            if (root.bar) root.bar.shell.summon("rene.lalinea", "{}")
+        Text {
+          width: parent.width
+          wrapMode: Text.WrapAnywhere
+          textFormat: Text.RichText
+          text: 'Official tribute: <a href="https://osvaldocavandoli.com/la-linea/">osvaldocavandoli.com</a>'
+          linkColor: Color.accent
+          color: Qt.darker(root.bar.foreground, 1.4)
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.body
+          onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+          MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+          }
+        }
+
+        Text {
+          width: parent.width
+          wrapMode: Text.WrapAnywhere
+          textFormat: Text.RichText
+          text: 'Plugin source: <a href="' + root.repoUrl + '">github.com/ariDev1/omaLinea</a>'
+          linkColor: Color.accent
+          color: Qt.darker(root.bar.foreground, 1.4)
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.body
+          onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+          MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+          }
+        }
+
+        Text {
+          width: parent.width
+          text: "▶ Summon La Linea on stage"
+          color: Color.accent
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: true
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              root.close()
+              if (root.bar) root.bar.shell.summon("rene.lalinea", "{}")
+            }
           }
         }
       }

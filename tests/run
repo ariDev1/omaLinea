@@ -28,21 +28,43 @@ for f in LaLinea.qml BarIcon.qml; do
   [ -f "$ROOT/$f" ] && pass "$f present" || fail "$f present"
 done
 
-# 3. Every scene referenced by LaLinea.qml exists with audio.
-missing=$(python3 - "$ROOT/LaLinea.qml" <<'EOF'
-import re, sys
-qml = open(sys.argv[1]).read()
-need = set(re.findall(r'"(walk|scene\d+)\.(gif|ogg)"', qml))
-import os
-root = os.path.dirname(sys.argv[1])
-absent = sorted({f"{n}.{e}" for n, e in need if not os.path.isfile(os.path.join(root, f"{n}.{e}"))})
-print(" ".join(absent))
-print(f"scenes referenced: {len(need)}", file=sys.stderr)
+# 3. Full source coverage: all 28 complete episodes and bounded WebP parts.
+python3 - "$ROOT" <<'EOF'
+import math, re, runpy, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+starts = runpy.run_path(str(root / "tools/generate_episodes.py"))["STARTS"]
+qml = (root / "LaLinea.qml").read_text()
+qml_starts = re.search(r"var starts = \[([^]]+)\]", qml, re.S)
+assert qml_starts, "QML episode catalog missing"
+assert [float(n) for n in qml_starts.group(1).replace("\n", "").split(",")] == list(starts), "QML boundaries differ from generated media"
+assert len(starts) == 29 and starts[0] == 0 and starts[-1] > 4345
+assert all(150 <= b-a <= 161 for a,b in zip(starts,starts[1:])), "episode boundary"
+expected = set()
+for index, (start, end) in enumerate(zip(starts, starts[1:])):
+    number = index + 101
+    expected.add(f"{number}.ogg")
+    for part in range(math.ceil((end-start) / 30)):
+        expected.add(f"{number}-{part:02d}.webp")
+actual = {p.name for p in (root / "episodes").iterdir() if p.is_file()}
+assert actual == expected, f"missing={expected-actual}, unexpected={actual-expected}"
+for file in (root / "episodes").iterdir():
+    with file.open("rb") as data:
+        magic = data.read(12)
+    if file.suffix == ".webp":
+        assert magic[:4] == b"RIFF" and magic[8:] == b"WEBP", file
+    else:
+        assert magic[:4] == b"OggS", file
+print(f"episodes: {len(starts)-1}; assets: {len(expected)}")
 EOF
-)
-[ -z "$missing" ] && pass "all referenced scenes + audio present" || fail "missing assets: $missing"
+[ $? -eq 0 ] && pass "all full-episode media present" || fail "episode media"
 
-# 4. Size budget: no giant files (GIF frame budget is covered in README).
+if command -v ffprobe >/dev/null 2>&1; then
+  frames=$(ffprobe -v error -count_frames -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 "$ROOT/episodes/101-00.webp")
+  [ "$frames" -gt 0 ] && [ "$frames" -le 240 ] && pass "WebP chunk frame budget" || fail "WebP chunk frame budget: $frames"
+fi
+
+# 4. Size budget: no giant files (WebP frame budget is covered above).
 big=$(python3 - "$ROOT" <<'EOF'
 import os, sys
 root = sys.argv[1]

@@ -3,25 +3,21 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 
-// La Linea Walker v3.6 — 14 original Cavandoli scenes, native stage + edge fill.
+// La Linea Walker — all 28 complete numbered episodes, native stage + edge fill.
 // Bar icon (BarIcon.qml): standing figure, random bow/hop every 5–18s.
 // Click the bar icon → native Omarchy PopupCard with Cavandoli tribute +
 // plugin source link (https://github.com/ariDev1/omaLinea).
-// Scene files: walk.gif/rant.ogg (violin, 28s) + scene1..13 gif/ogg (12-40s).
-// Extended 2026-09-16: scene2 23s->35s, scene3 12s->30s, scene4 18s->35s @8fps.
-// Added 2026-09-16: scene10 Duel (ss420), scene11 Beers (ss880), scene12 Ball (ss2500), 30s @8fps.
-// Added 2026-09-16: scene13 Tennis (ss2282, 22s @8fps, navy key 0x00053E).
-// Added 2026-09-16: edge-to-edge zoom toggle (SUPER+SHIFT+Z).
-// NOTE: AnimatedImage decodes ALL frames to RAM (~400x320x4 bytes each).
-// Keep GIFs <= ~400 frames @400px wide or scenes go black/frozen.
-// Zoom is GPU scaling of the same decoded frames — safe at any size.
+// episodes/NNN-PP.webp: transparent 30s chunks at 8fps, 400x320.
+// episodes/NNN.ogg: uninterrupted original soundtrack for each full episode.
+// AnimatedImage decodes the active chunk to RAM (<=240 frames, ~123 MB).
 // Summon/toggle: omarchy-shell shell toggle rene.lalinea            (SUPER+L)
 // Next scene:      omarchy-shell shell summon rene.lalinea '{"action":"next"}'  (SUPER+SHIFT+L)
 // Previous scene:  omarchy-shell shell summon rene.lalinea '{"action":"prev"}'  (SUPER+SHIFT+J)
 // Zoom toggle:     omarchy-shell shell summon rene.lalinea '{"action":"toggleFill"}'  (SUPER+SHIFT+Z)
 // Force zoom on:   omarchy-shell shell summon rene.lalinea '{"action":"fill"}'
 // Force native:    omarchy-shell shell summon rene.lalinea '{"action":"stage"}'
-// Direct scene:    omarchy-shell shell summon rene.lalinea '{"scene":2}'
+// Direct episode:  omarchy-shell shell summon rene.lalinea '{"episode":120}'
+// Zero-based index: omarchy-shell shell summon rene.lalinea '{"scene":19}'
 Item {
   id: root
 
@@ -38,25 +34,26 @@ Item {
   property bool fillScreen: false
 
   // Display size multiplier: 1.0 = native 400px, 1.8 = big stage presence.
-  // Cheap (GPU scale) — unlike bigger GIF files which break AnimatedImage.
+  // Cheap GPU scaling of the active WebP chunk.
   property real displayScale: 1.8
 
-  readonly property var scenes: [
-    { name: "Violin",       gif: "walk.gif",   audio: "rant.ogg"   },
-    { name: "Car repair",   gif: "scene1.gif", audio: "scene1.ogg" },
-    { name: "Umbrella",     gif: "scene2.gif", audio: "scene2.ogg" },
-    { name: "Piano",        gif: "scene3.gif", audio: "scene3.ogg" },
-    { name: "Car push",     gif: "scene4.gif", audio: "scene4.ogg" },
-    { name: "Trumpet",      gif: "scene5.gif", audio: "scene5.ogg" },
-    { name: "Fight cloud",  gif: "scene6.gif", audio: "scene6.ogg" },
-    { name: "Car stack",    gif: "scene7.gif", audio: "scene7.ogg" },
-    { name: "Trapeze",      gif: "scene8.gif", audio: "scene8.ogg" },
-    { name: "Steps",        gif: "scene9.gif", audio: "scene9.ogg" },
-    { name: "Duel",         gif: "scene10.gif", audio: "scene10.ogg" },
-    { name: "Beers",        gif: "scene11.gif", audio: "scene11.ogg" },
-    { name: "Ball",         gif: "scene12.gif", audio: "scene12.ogg" },
-    { name: "Tennis",       gif: "scene13.gif", audio: "scene13.ogg" }
-  ]
+  readonly property var scenes: {
+    // Starts of episodes 101–128, including title cards and endings.
+    var starts = [0, 150, 310, 465, 620, 775, 925, 1080, 1230, 1385,
+                  1540, 1695, 1850, 2005, 2160, 2315, 2475, 2635, 2790,
+                  2945, 3100, 3260, 3420, 3575, 3730, 3880, 4035, 4190,
+                  4345.901]
+    var result = []
+    for (var i = 0; i < starts.length - 1; i++) {
+      var number = 101 + i
+      var duration = starts[i + 1] - starts[i]
+      result.push({ name: "Episode " + number, number: number, duration: duration,
+                    parts: Math.ceil(duration / 30), audio: "episodes/" + number + ".ogg" })
+    }
+    return result
+  }
+  property int partIndex: 0
+  readonly property string partUrl: "episodes/" + scenes[sceneIndex].number + "-" + ("0" + partIndex).slice(-2) + ".webp"
 
   readonly property string audioPath: {
     var u = String(Qt.resolvedUrl(scenes[sceneIndex].audio));
@@ -66,7 +63,7 @@ Item {
   function setScene(i) {
     var n = scenes.length
     root.sceneIndex = ((i % n) + n) % n
-    if (root.opened) restartAudio()
+    if (root.opened) startEpisode()
   }
   function next() {
     var was = root.opened
@@ -84,8 +81,30 @@ Item {
   }
   function restartAudio() {
     audioProc.running = false
-    audioProc.command = ["mpv", "--no-video", "--loop-file=inf", "--really-quiet", "--volume=80", root.audioPath]
+    audioProc.command = ["mpv", "--no-video", "--really-quiet", "--volume=80", root.audioPath]
     restartTimer.restart()
+  }
+
+  function startEpisode() {
+    partTimer.stop()
+    root.partIndex = 0
+    partTimer.start()
+    restartAudio()
+  }
+
+  Timer {
+    id: partTimer
+    interval: Math.round(Math.min(30, root.scenes[root.sceneIndex].duration - root.partIndex * 30) * 1000)
+    repeat: false
+    onTriggered: {
+      if (!root.opened) return
+      if (root.partIndex + 1 < root.scenes[root.sceneIndex].parts) {
+        root.partIndex++
+        partTimer.start()
+      } else {
+        root.startEpisode()
+      }
+    }
   }
 
   Timer {
@@ -98,18 +117,25 @@ Item {
   function open(payloadJson) {
     try {
       var p = JSON.parse(payloadJson || "{}")
-      if (typeof p.scene === "number") root.sceneIndex = ((p.scene % scenes.length) + scenes.length) % scenes.length
+      if (typeof p.episode === "number" && p.episode >= 101 && p.episode <= 128 && Math.floor(p.episode) === p.episode)
+        root.sceneIndex = p.episode - 101
+      else if (typeof p.scene === "number" && isFinite(p.scene)) root.sceneIndex = ((Math.floor(p.scene) % scenes.length) + scenes.length) % scenes.length
       else if (p.action === "next") { root.opened = true; root.setScene(root.sceneIndex + 1); return }
       else if (p.action === "prev") { root.opened = true; root.setScene(root.sceneIndex - 1); return }
-      else if (p.action === "toggleFill") { root.opened = true; root.fillScreen = !root.fillScreen; restartAudio(); return }
+      else if (p.action === "toggleFill") {
+        root.fillScreen = !root.fillScreen
+        if (!root.opened) { root.opened = true; root.startEpisode() }
+        return
+      }
       else if (p.action === "fill") { root.fillScreen = true }
       else if (p.action === "stage") { root.fillScreen = false }
     } catch (e) {}
     root.opened = true
-    restartAudio()
+    startEpisode()
   }
   function close() {
     root.opened = false
+    partTimer.stop()
     restartTimer.stop()
     if (audioProc.running) audioProc.running = false
   }
@@ -133,10 +159,10 @@ Item {
     running: true
   }
 
-  // Original rant audio per scene, looped for as long as he is on stage.
+  // One continuous audio track per episode; visual chunks change independently.
   Process {
     id: audioProc
-    command: ["mpv", "--no-video", "--loop-file=inf", "--really-quiet", "--volume=80", root.audioPath]
+    command: ["mpv", "--no-video", "--really-quiet", "--volume=80", root.audioPath]
   }
 
   PanelWindow {
@@ -158,15 +184,15 @@ Item {
 
       // Native stage: aspect-correct bottom display (crisp favorite).
       // Fill mode: stretched to screen edges (SUPER+SHIFT+Z toggles).
-      // Both are GPU scaling of the same small decoded GIF — always safe.
+      // Both are GPU scaling of the same small decoded WebP chunk.
       AnimatedImage {
         id: walker
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 0
         anchors.horizontalCenter: parent.horizontalCenter
-        width: root.fillScreen ? stage.width : Math.min(stage.width * 0.8, 400 * displayScale)
+        width: root.fillScreen ? stage.width : Math.min(stage.width * 0.8, 400 * root.displayScale)
         height: root.fillScreen ? stage.height : width * 0.8
-        source: Qt.resolvedUrl(scenes[sceneIndex].gif)
+        source: Qt.resolvedUrl(root.partUrl)
         playing: root.opened
         cache: false
         asynchronous: true
@@ -179,7 +205,7 @@ Item {
         anchors.rightMargin: 18
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 12
-        text: "La Linea • " + scenes[sceneIndex].name + " (" + (sceneIndex + 1) + "/" + scenes.length + ") • " + (root.fillScreen ? "EDGE FILL" : "native") + " • SUPER+L dismiss, SHIFT+L/J scenes, SHIFT+Z zoom"
+        text: "La Linea • " + root.scenes[root.sceneIndex].name + " (" + (root.sceneIndex + 1) + "/" + root.scenes.length + ") • " + (root.fillScreen ? "EDGE FILL" : "native") + " • SUPER+L dismiss, SHIFT+L/J episodes, SHIFT+Z zoom"
         color: "white"
         opacity: 0.55
         font.pixelSize: 13

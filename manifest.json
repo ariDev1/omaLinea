@@ -5,7 +5,7 @@
   "version": "3.6.0",
   "author": "rene",
   "license": "MIT",
-  "description": "La Linea by Osvaldo Cavandoli (unofficial fan tribute): 14 transparent keyed scenes with original Bonomi rant audio, animated bar icon. SUPER+L toggles, SUPER+SHIFT+L/J scenes, SUPER+SHIFT+Z zoom.",
+  "description": "La Linea by Osvaldo Cavandoli (unofficial fan tribute): all 28 complete numbered episodes from the local compilation, transparent chunked WebP with original synchronized audio, animated bar icon. SUPER+L toggles, SUPER+SHIFT+L/J episodes, SUPER+SHIFT+Z zoom.",
   "kinds": ["overlay", "bar-widget"],
   "keepLoaded": true,
   "entryPoints": {

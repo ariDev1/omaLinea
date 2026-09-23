@@ -60,6 +60,19 @@ Item {
     return u.replace(/^file:\/\//, "");
   }
 
+  // Wall-clock anchor for A/V sync. Audio (mpv) runs free while video
+  // (AnimatedImage) can stall on chunk loads or fullscreen GPU scaling.
+  // elapsed() lets us seek audio back to video on zoom toggles.
+  property double episodeStartMs: 0
+  function episodeElapsed() {
+    if (episodeStartMs <= 0) return partIndex * 30
+    var e = (Date.now() - episodeStartMs) / 1000
+    var d = scenes[sceneIndex].duration
+    if (e < 0) return 0
+    if (e > d - 0.1) return d - 0.1
+    return e
+  }
+
   function setScene(i) {
     var n = scenes.length
     root.sceneIndex = ((i % n) + n) % n
@@ -76,30 +89,60 @@ Item {
     if (!was) root.open("{}")
   }
   function toggleFill() {
-    if (!root.opened) root.open('{"action":"fill"}')
-    else root.fillScreen = !root.fillScreen
+    if (!root.opened) { root.open('{"action":"fill"}'); return }
+    root.fillScreen = !root.fillScreen
+    // Fullscreen re-rasterizes every animated frame at screen size and can
+    // drop video frames while mpv audio keeps real time. Re-anchor both to
+    // the current playback position so they leave the toggle in sync.
+    root.resyncAv()
   }
   function restartAudio() {
     audioProc.running = false
     audioProc.command = ["mpv", "--no-video", "--really-quiet", "--volume=80", root.audioPath]
     restartTimer.restart()
   }
+  function seekAudio(offsetSec) {
+    var off = Math.min(Math.max(0, offsetSec), Math.max(0, scenes[sceneIndex].duration - 0.2))
+    audioProc.running = false
+    audioProc.command = ["mpv", "--no-video", "--really-quiet", "--volume=80", "--start=" + off.toFixed(2), root.audioPath]
+    restartTimer.restart()
+  }
+  function resyncAv() {
+    var elapsed = root.episodeElapsed()
+    var p = Math.min(Math.floor(elapsed / 30), root.scenes[root.sceneIndex].parts - 1)
+    if (p < 0) p = 0
+    root.partIndex = p
+    var intoPart = elapsed - p * 30
+    var remain = Math.min(30 - intoPart, root.scenes[root.sceneIndex].duration - elapsed)
+    if (remain < 1) remain = 1
+    partTimer.stop()
+    partTimer.interval = Math.round(remain * 1000)
+    partTimer.start()
+    // Re-anchor the clock now; restartTimer adds ~300ms before mpv resumes,
+    // so shift the anchor forward to keep video from running ahead.
+    root.episodeStartMs = Date.now() - elapsed * 1000 + 300
+    root.seekAudio(elapsed)
+  }
 
   function startEpisode() {
     partTimer.stop()
     root.partIndex = 0
+    root.episodeStartMs = Date.now()
+    partTimer.interval = Math.round(Math.min(30, root.scenes[root.sceneIndex].duration) * 1000)
     partTimer.start()
     restartAudio()
   }
 
   Timer {
     id: partTimer
-    interval: Math.round(Math.min(30, root.scenes[root.sceneIndex].duration - root.partIndex * 30) * 1000)
+    interval: 30000
     repeat: false
     onTriggered: {
       if (!root.opened) return
       if (root.partIndex + 1 < root.scenes[root.sceneIndex].parts) {
         root.partIndex++
+        var remain = Math.min(30, root.scenes[root.sceneIndex].duration - root.partIndex * 30)
+        partTimer.interval = Math.round(remain * 1000)
         partTimer.start()
       } else {
         root.startEpisode()
@@ -125,6 +168,7 @@ Item {
       else if (p.action === "toggleFill") {
         root.fillScreen = !root.fillScreen
         if (!root.opened) { root.opened = true; root.startEpisode() }
+        else root.resyncAv()
         return
       }
       else if (p.action === "fill") { root.fillScreen = true }
